@@ -81,7 +81,7 @@ actuator_args.add_argument('status', type=str, required=True, help="Status canno
 ```
 {
         'ID' : 'S-0235694',
-        'Token' : 't-197354'
+        'Token' : 'T-197354'
         'Devices' : [
             {
                 'type' : 'sensor',
@@ -104,6 +104,7 @@ actuator_args.add_argument('status', type=str, required=True, help="Status canno
 
 ### Fields
 Then we create fields and show what type they accept :
+#### a. User
 ```
 userFields = {
     'id':fields.Integer,
@@ -111,7 +112,9 @@ userFields = {
     'password':fields.String,
     'userrequest':fields.String,
 }
-
+```
+#### b. Device and Sensor
+```
 class DeviceSchema(ModelSchema):
     class Meta:
         model = DeviceModel
@@ -120,7 +123,7 @@ class DeviceSchema(ModelSchema):
 deviceFields = {
     'type': fields.String,
     'name': fields.String,
-    'value': fields.String,
+    'value': fields.Integer,
     'sensor_id': fields.Integer,
 }
 
@@ -130,7 +133,16 @@ sensorFields = {
     'devices': fields.Nested(DeviceSchema, many=True),
 }
 ```
-
+#### c. Actuator
+```
+actuatorFields = {
+    'id': fields.Integer,
+    'token': fields.String,
+    'type': fields.String,
+    'location': fields.String,
+    'status': fields.String,
+}
+```
 ### Add get, post, patch and delete for Users :
 In ```class Users(Resource)``` we create ```def get(self)``` to show all the users with the fields that we described and then in ```def post(self)``` we can add new user :
 ```
