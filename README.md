@@ -10,6 +10,7 @@ $ py create_db.py
 ```
 
 ## Explain api code
+### Models
 First we create User Model & Device Model & Sensor Model that shows the features of each fields and then we add argument for each one :
 ```
 class UserModel(db.Model): 
@@ -25,8 +26,7 @@ user_args = reqparse.RequestParser()
 user_args.add_argument('username', type=str, required=True, help="Username cannot be blank")
 user_args.add_argument('password', type=str, required=True, help="Password cannot be blank")
 user_args.add_argument('userrequest', type=str, required=True, help="Userrequest cannot be blank")
-```
-```
+
 class DeviceModel(db.Model):
     __tablename__ = 'devices'
     type = db.Column(db.String(80), nullable=False)
@@ -55,3 +55,43 @@ device_args.add_argument('type', type=str, required=True, help="Type cannot be b
 device_args.add_argument('name', type=str, required=True, help="Name cannot be blank")
 device_args.add_argument('value', type=str, required=True, help="Value cannot be blank")
 ```
+
+### Fields
+Then we create fields and show what type they accept :
+```
+userFields = {
+    'id':fields.Integer,
+    'username':fields.String,
+    'password':fields.String,
+    'userrequest':fields.String,
+}
+
+class DeviceSchema(ModelSchema):
+    class Meta:
+        model = DeviceModel
+        sqla_session = db.session
+
+deviceFields = {
+    'type': fields.String,
+    'name': fields.String,
+    'value': fields.String,
+    'sensor_id': fields.Integer,
+}
+
+sensorFields = {
+    'id': fields.Integer,
+    'token': fields.String,
+    'devices': fields.Nested(DeviceSchema, many=True),
+}
+```
+
+
+
+
+
+
+
+
+
+
+
