@@ -55,6 +55,30 @@ device_args.add_argument('type', type=str, required=True, help="Type cannot be b
 device_args.add_argument('name', type=str, required=True, help="Name cannot be blank")
 device_args.add_argument('value', type=str, required=True, help="Value cannot be blank")
 ```
+**_NOTE:_**  Important part is that devices are in side of sensor, for example or JSON look like this :
+```
+{
+        'ID' : 'blablabla',
+        'Token' : 'blablabla'
+        'Devices' : [
+            {
+                'type' : 'sensor',
+                'name' : 'temp0',
+                'value' : 18.5
+            },
+            {
+                'type' : 'act',
+                'name' : 'lamp0',
+                'value' : 1
+            },
+            {
+                'type' : 'act',
+                'name' : 'lamp1',
+                'value' : 0
+            }
+        ]
+}
+```
 
 ### Fields
 Then we create fields and show what type they accept :
