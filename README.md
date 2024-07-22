@@ -211,7 +211,7 @@ class User(Resource):
 **_NOTE:_**  We do the same function for devices, device, sensors, sensor, actuators and actuator .
 
 
-# Server
+# 2.Server
 
 The `server.py` script implements a WebSocket server that authenticates clients using a token, receives data from connected clients, and saves the data to JSON files. Additionally, it provides HTTP endpoints for controlling data transmission from clients.
 
@@ -515,7 +515,7 @@ if __name__ == '__main__':
 - **main Function**: Starts the WebSocket and HTTP servers.
 - **__main__ Block**: Runs the main function and handles keyboard interruption.
 
-# Gateway
+# 3.Gateway
 
 The `gateway.ino` script is an Arduino program that connects to a WiFi network, establishes a WebSocket connection with the server, and sends sensor and actuator data. It also listens for control messages from the server to start/stop data transmission.
 
