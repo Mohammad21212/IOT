@@ -89,12 +89,11 @@ sensorFields = {
 In ```class Users(Resource)``` we create ```def get(self)``` to show all the users with the fields that we described and then in ```def post(self)``` we can add new user :
 ```
 class Users(Resource):
-    # get for users
     @marshal_with(userFields)
     def get(self):
         users = UserModel.query.all() 
         return users 
-    # post for users
+
     @marshal_with(userFields)
     def post(self):
         args = user_args.parse_args()
@@ -104,7 +103,53 @@ class Users(Resource):
         users = UserModel.query.all()
         return users, 201
 ```
+For the second class ```class User(Resource)``` we create ```def get(self, id)``` for get user form there id (like search with id) , in ```def patch(self, id)``` we can update a user by there id , at the end we create ```def delete(self, id)``` that we can delete user by there id :
+```
+class Users(Resource):
+    @marshal_with(userFields)
+    def get(self):
+        users = UserModel.query.all() 
+        return users
 
+    @marshal_with(userFields)
+    def post(self):
+        args = user_args.parse_args()
+        user = UserModel(username=args["username"], password=args["password"], userrequest=args["userrequest"])
+        db.session.add(user) 
+        db.session.commit()
+        users = UserModel.query.all()
+        return users, 201
+
+class User(Resource):
+    @marshal_with(userFields)
+    def get(self, id):
+        user = UserModel.query.filter_by(id=id).first() 
+        if not user: 
+            abort(404, message="User not found")
+        return user 
+    
+    @marshal_with(userFields)
+    def patch(self, id):
+        args = user_args.parse_args()
+        user = UserModel.query.filter_by(id=id).first() 
+        if not user: 
+            abort(404, message="User not found")
+        user.username = args["username"]
+        user.password = args["password"]
+        user.userrequest = args["userrequest"]
+        db.session.commit()
+        return user 
+    
+    @marshal_with(userFields)
+    def delete(self, id):
+        user = UserModel.query.filter_by(id=id).first() 
+        if not user: 
+            abort(404, message="User not found")
+        db.session.delete(user)
+        db.session.commit()
+        users = UserModel.query.all()
+        return users
+```
 
 
 
