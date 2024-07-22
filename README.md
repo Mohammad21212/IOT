@@ -58,23 +58,23 @@ device_args.add_argument('value', type=str, required=True, help="Value cannot be
 **_NOTE:_**  Important part is that devices are in side of sensor, for example or JSON look like this :
 ```
 {
-        'ID' : 'blablabla',
-        'Token' : 'blablabla'
+        'ID' : 'S-0235694',
+        'Token' : 't-197354'
         'Devices' : [
             {
                 'type' : 'sensor',
                 'name' : 'temp0',
-                'value' : '18.5'
+                'value' : 18.5
             },
             {
                 'type' : 'act',
                 'name' : 'lamp0',
-                'value' : '1'
+                'value' : 1
             },
             {
                 'type' : 'act',
                 'name' : 'lamp1',
-                'value' : '0'
+                'value' : 0
             }
         ]
 }
