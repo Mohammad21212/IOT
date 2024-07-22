@@ -3,12 +3,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
 from marshmallow_sqlalchemy import ModelSchema
 
+# -----<<Database>>-----
 app = Flask(__name__) 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 db = SQLAlchemy(app) 
 api = Api(app)
 
-# User
+# -----<<Models>>-----
+# <<User>>
 class UserModel(db.Model): 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -23,6 +25,54 @@ user_args.add_argument('username', type=str, required=True, help="Username canno
 user_args.add_argument('password', type=str, required=True, help="Password cannot be blank")
 user_args.add_argument('userrequest', type=str, required=True, help="Userrequest cannot be blank")
 
+# <<Sensor and Device>>
+class DeviceModel(db.Model):
+    __tablename__ = 'devices'
+    type = db.Column(db.String(80), nullable=False)
+    name = db.Column(db.String(80), nullable=False)
+    value = db.Column(db.Integer, nullable=False)
+    sensor_id = db.Column(db.Integer, db.ForeignKey('sensors.id'), nullable=False)
+    sensor = db.relationship('SensorModel', backref=db.backref('devices', lazy=True))
+
+    def __repr__(self):
+        return f"Device(type={self.type}, name={self.name}, value={self.value})"
+
+class SensorModel(db.Model): 
+    __tablename__ = 'sensors'
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(80), unique=True, nullable=False)
+    devices = db.relationship('DeviceModel', backref='sensor', lazy=True)
+
+    def __repr__(self): 
+        return f"Sensor(id = {self.id}, token = {self.token}, devices={self.devices})"
+
+sensor_args = reqparse.RequestParser()
+sensor_args.add_argument('token', type=str, required=True, help="Token od sensor cannot be blank")
+
+device_args = reqparse.RequestParser()
+device_args.add_argument('type', type=str, required=True, help="Type of device cannot be blank")
+device_args.add_argument('name', type=str, required=True, help="Name cannot be blank")
+device_args.add_argument('value', type=int, required=True, help="Value cannot be blank")
+
+# <<Actuator>>
+class ActuatorModel(db.Model): 
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(80), unique=True, nullable=False)
+    type = db.Column(db.String(80), nullable=False)
+    location = db.Column(db.String(80), nullable=False)
+    status = db.Column(db.String(80), nullable=False)
+
+    def __repr__(self): 
+        return f"User(token = {self.token}, type = {self.type}, location = {self.location}, status = {self.status})"
+
+actuator_args = reqparse.RequestParser()
+actuator_args.add_argument('token', type=str, required=True, help="Token of Actuatr cannot be blank")
+actuator_args.add_argument('type', type=str, required=True, help="Type of Actuator cannot be blank")
+actuator_args.add_argument('location', type=str, required=True, help="Location cannot be blank")
+actuator_args.add_argument('status', type=str, required=True, help="Status cannot be blank")
+
+# -----<<Fields>>-----
+# <<User>>
 userFields = {
     'id':fields.Integer,
     'username':fields.String,
@@ -30,13 +80,41 @@ userFields = {
     'userrequest':fields.String,
 }
 
+# <<Sensor and Device>>
+class DeviceSchema(ModelSchema):
+    class Meta:
+        model = DeviceModel
+        sqla_session = db.session
+
+deviceFields = {
+    'type': fields.String,
+    'name': fields.String,
+    'value': fields.Integer,
+    'sensor_id': fields.Integer,
+}
+
+sensorFields = {
+    'id': fields.Integer,
+    'token': fields.String,
+    'devices': fields.Nested(DeviceSchema, many=True),
+}
+
+# <<Actuator>>
+actuatorFields = {
+    'id': fields.Integer,
+    'token': fields.String,
+    'type': fields.String,
+    'location': fields.String,
+    'status': fields.String,
+}
+
+# -----<<get, post, patch and delete>>-----
+# <<User>>
 class Users(Resource):
-    # get for users
     @marshal_with(userFields)
     def get(self):
         users = UserModel.query.all() 
         return users 
-    # post for users
     @marshal_with(userFields)
     def post(self):
         args = user_args.parse_args()
@@ -46,7 +124,6 @@ class Users(Resource):
         users = UserModel.query.all()
         return users, 201
 
-# just for one user
 class User(Resource):
     @marshal_with(userFields)
     def get(self, id):
@@ -76,64 +153,14 @@ class User(Resource):
         db.session.commit()
         users = UserModel.query.all()
         return users
-    
-############################################################
 
-# Sensor and Device
-class DeviceModel(db.Model):
-    __tablename__ = 'devices'
-    type = db.Column(db.String(80), nullable=False)
-    name = db.Column(db.String(80), nullable=False)
-    value = db.Column(db.Integer, nullable=False)
-    sensor_id = db.Column(db.Integer, db.ForeignKey('sensors.id'), nullable=False)
-    sensor = db.relationship('SensorModel', backref=db.backref('devices', lazy=True))
-
-    def __repr__(self):
-        return f"Device(type={self.type}, name={self.name}, value={self.value})"
-
-class SensorModel(db.Model): 
-    __tablename__ = 'sensors'
-    id = db.Column(db.Integer, primary_key=True)
-    token = db.Column(db.String(80), unique=True, nullable=False)
-    devices = db.relationship('DeviceModel', backref='sensor', lazy=True)
-
-    def __repr__(self): 
-        return f"Sensor(id = {self.id}, token = {self.token}, devices={self.devices})"
-
-sensor_args = reqparse.RequestParser()
-sensor_args.add_argument('token', type=str, required=True, help="Token od sensor cannot be blank")
-
-device_args = reqparse.RequestParser()
-device_args.add_argument('type', type=str, required=True, help="Type of device cannot be blank")
-device_args.add_argument('name', type=str, required=True, help="Name cannot be blank")
-device_args.add_argument('value', type=int, required=True, help="Value cannot be blank")
-
-class DeviceSchema(ModelSchema):
-    class Meta:
-        model = DeviceModel
-        sqla_session = db.session
-
-deviceFields = {
-    'type': fields.String,
-    'name': fields.String,
-    'value': fields.String,
-    'sensor_id': fields.Integer,
-}
-
-sensorFields = {
-    'id': fields.Integer,
-    'token': fields.String,
-    'devices': fields.Nested(DeviceSchema, many=True),
-}
-
+# <<Sensor and Device>>
 class Devices(Resource):
-    # get for devices
     @marshal_with(deviceFields)
     def get(self):
         devices = DeviceModel.query.all()
         return devices
 
-    # post for devices
     @marshal_with(deviceFields)
     def post(self):
         args = device_args.parse_args()
@@ -174,13 +201,11 @@ class Device(Resource):
 
 
 class Sensors(Resource):
-    # get for sensors
     @marshal_with(sensorFields)
     def get(self):
         sensors = SensorModel.query.all()
         return sensors
 
-    # post for sensors
     @marshal_with(sensorFields)
     def post(self):
         args = sensor_args.parse_args()
@@ -208,7 +233,6 @@ class Sensor(Resource):
         db.session.commit()
         return sensor, 200
     
-    # delete for sensors
     def delete(self, id):
         sensor = SensorModel.query.get(id)
         if sensor is None:
@@ -216,32 +240,8 @@ class Sensor(Resource):
         db.session.delete(sensor)
         db.session.commit()
         return "", 204
-    
-############################################################
-class ActuatorModel(db.Model): 
-    id = db.Column(db.Integer, primary_key=True)
-    token = db.Column(db.String(80), unique=True, nullable=False)
-    type = db.Column(db.String(80), nullable=False)
-    location = db.Column(db.String(80), nullable=False)
-    status = db.Column(db.String(80), nullable=False)
 
-    def __repr__(self): 
-        return f"User(token = {self.token}, type = {self.type}, location = {self.location}, status = {self.status})"
-
-actuator_args = reqparse.RequestParser()
-actuator_args.add_argument('token', type=str, required=True, help="Token of Actuatr cannot be blank")
-actuator_args.add_argument('type', type=str, required=True, help="Type of Actuator cannot be blank")
-actuator_args.add_argument('location', type=str, required=True, help="Location cannot be blank")
-actuator_args.add_argument('status', type=str, required=True, help="Status cannot be blank")
-
-actuatorFields = {
-    'id': fields.Integer,
-    'token': fields.String,
-    'type': fields.String,
-    'location': fields.String,
-    'status': fields.String,
-}
-
+# <<Actuator>>
 class Actuators(Resource):
     @marshal_with(actuatorFields)
     def get(self):
