@@ -85,9 +85,25 @@ sensorFields = {
 }
 ```
 
-
-
-
+### Add get, post, patch and delete for Users :
+In ```class Users(Resource)``` we create ```def get(self)``` to show all the users with the fields that we described and then in ```def post(self)``` we can add new user :
+```
+class Users(Resource):
+    # get for users
+    @marshal_with(userFields)
+    def get(self):
+        users = UserModel.query.all() 
+        return users 
+    # post for users
+    @marshal_with(userFields)
+    def post(self):
+        args = user_args.parse_args()
+        user = UserModel(username=args["username"], password=args["password"], userrequest=args["userrequest"])
+        db.session.add(user) 
+        db.session.commit()
+        users = UserModel.query.all()
+        return users, 201
+```
 
 
 
