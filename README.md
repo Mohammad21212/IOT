@@ -11,7 +11,7 @@ $ py create_db.py
 
 ## Explain api code
 ### Models
-First we create User Model & Device Model & Sensor Model that shows the features of each fields and then we add argument for each one :
+First we create User Model & Device Model & Sensor Model & Actuator Model that shows the features of each fields and then we add argument for each one :
 ```
 class UserModel(db.Model): 
     id = db.Column(db.Integer, primary_key=True)
