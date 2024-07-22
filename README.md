@@ -31,7 +31,7 @@ class DeviceModel(db.Model):
     __tablename__ = 'devices'
     type = db.Column(db.String(80), nullable=False)
     name = db.Column(db.String(80), nullable=False)
-    value = db.Column(db.String(80), nullable=False)
+    value = db.Column(db.Integer, nullable=False)
     sensor_id = db.Column(db.Integer, db.ForeignKey('sensors.id'), nullable=False)
     sensor = db.relationship('SensorModel', backref=db.backref('devices', lazy=True))
 
