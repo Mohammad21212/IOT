@@ -12,6 +12,7 @@ $ py create_db.py
 ## Explain api code
 ### Models
 First we create User Model & Device Model & Sensor Model & Actuator Model that shows the features of each fields and then we add argument for each one :
+#### a. User
 ```
 class UserModel(db.Model): 
     id = db.Column(db.Integer, primary_key=True)
@@ -26,7 +27,9 @@ user_args = reqparse.RequestParser()
 user_args.add_argument('username', type=str, required=True, help="Username cannot be blank")
 user_args.add_argument('password', type=str, required=True, help="Password cannot be blank")
 user_args.add_argument('userrequest', type=str, required=True, help="Userrequest cannot be blank")
-
+```
+#### b. Device and Sensor
+```
 class DeviceModel(db.Model):
     __tablename__ = 'devices'
     type = db.Column(db.String(80), nullable=False)
@@ -48,13 +51,32 @@ class SensorModel(db.Model):
         return f"Sensor(id = {self.id}, token = {self.token}, devices={self.devices})"
 
 sensor_args = reqparse.RequestParser()
-sensor_args.add_argument('token', type=str, required=True, help="Token cannot be blank")
+sensor_args.add_argument('token', type=str, required=True, help="Token od sensor cannot be blank")
 
 device_args = reqparse.RequestParser()
-device_args.add_argument('type', type=str, required=True, help="Type cannot be blank")
+device_args.add_argument('type', type=str, required=True, help="Type of device cannot be blank")
 device_args.add_argument('name', type=str, required=True, help="Name cannot be blank")
-device_args.add_argument('value', type=str, required=True, help="Value cannot be blank")
+device_args.add_argument('value', type=int, required=True, help="Value cannot be blank")
 ```
+#### c. Actuator
+```
+class ActuatorModel(db.Model): 
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(80), unique=True, nullable=False)
+    type = db.Column(db.String(80), nullable=False)
+    location = db.Column(db.String(80), nullable=False)
+    status = db.Column(db.String(80), nullable=False)
+
+    def __repr__(self): 
+        return f"User(token = {self.token}, type = {self.type}, location = {self.location}, status = {self.status})"
+
+actuator_args = reqparse.RequestParser()
+actuator_args.add_argument('token', type=str, required=True, help="Token of Actuatr cannot be blank")
+actuator_args.add_argument('type', type=str, required=True, help="Type of Actuator cannot be blank")
+actuator_args.add_argument('location', type=str, required=True, help="Location cannot be blank")
+actuator_args.add_argument('status', type=str, required=True, help="Status cannot be blank")
+```
+
 **_NOTE:_**  Important part is that devices are in side of sensor, for example or JSON look like this :
 ```
 {
