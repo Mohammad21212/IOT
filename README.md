@@ -174,6 +174,7 @@ class User(Resource):
         users = UserModel.query.all()
         return users
 ```
+**_NOTE:_**  We do the same function for devices, device, sensors and sensor .
 
 
 
