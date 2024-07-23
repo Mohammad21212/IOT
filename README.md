@@ -11,7 +11,7 @@ $ py create_db.py
 
 ## Explain api code
 ### Models
-First we create User Model & Device Model & Sensor Model & Actuator Model that shows the features of each fields and then we add argument for each one :
+First we create User Model & Device Model & Gateway Model that shows the features of each fields and then we add argument for each one :
 #### a. User
 ```
 class UserModel(db.Model): 
@@ -28,79 +28,57 @@ user_args.add_argument('username', type=str, required=True, help="Username canno
 user_args.add_argument('password', type=str, required=True, help="Password cannot be blank")
 user_args.add_argument('userrequest', type=str, required=True, help="Userrequest cannot be blank")
 ```
-#### b. Device and Sensor
+#### b. Gateway and Device
 ```
 class DeviceModel(db.Model):
     __tablename__ = 'devices'
+    id = db.Column(db.Integer,unique=True , nullable=False)
+    token = db.Column(db.String(80), unique=True, nullable=False)
     type = db.Column(db.String(80), nullable=False)
     name = db.Column(db.String(80), nullable=False)
     value = db.Column(db.Integer, nullable=False)
-    sensor_id = db.Column(db.Integer, db.ForeignKey('sensors.id'), nullable=False)
-    sensor = db.relationship('SensorModel', backref=db.backref('devices', lazy=True))
+    datatype = db.Column(db.String, nullable=False)    
 
     def __repr__(self):
-        return f"Device(type={self.type}, name={self.name}, value={self.value})"
+        return f"Device(token={self.token}, type={self.type}, name={self.name}, value={self.value}, datatype={self.datatype})"
 
-class SensorModel(db.Model): 
-    __tablename__ = 'sensors'
+class GatewayModel(db.Model): 
+    __tablename__ = 'Gateways'
     id = db.Column(db.Integer, primary_key=True)
     token = db.Column(db.String(80), unique=True, nullable=False)
-    devices = db.relationship('DeviceModel', backref='sensor', lazy=True)
+    name = db.Column(db.String(80), nullable=False)
+    devices = db.relationship('DeviceModel', backref='gateway', lazy=True)
 
     def __repr__(self): 
-        return f"Sensor(id = {self.id}, token = {self.token}, devices={self.devices})"
+        return f"Sensor(id = {self.id}, token = {self.token}, name={self.name}, devices={self.devices})"
+    
+    
+class DeviceSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = DeviceModel
+        include_fk = True
 
-sensor_args = reqparse.RequestParser()
-sensor_args.add_argument('token', type=str, required=True, help="Token od sensor cannot be blank")
+class GatewaySchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = GatewayModel
+        include_relationships = True
+        load_instance = True
 
-device_args = reqparse.RequestParser()
-device_args.add_argument('type', type=str, required=True, help="Type of device cannot be blank")
-device_args.add_argument('name', type=str, required=True, help="Name cannot be blank")
-device_args.add_argument('value', type=int, required=True, help="Value cannot be blank")
-```
-#### c. Actuator
-```
-class ActuatorModel(db.Model): 
-    id = db.Column(db.Integer, primary_key=True)
-    token = db.Column(db.String(80), unique=True, nullable=False)
-    type = db.Column(db.String(80), nullable=False)
-    location = db.Column(db.String(80), nullable=False)
-    status = db.Column(db.String(80), nullable=False)
+    devices = fields.List(fields.Nested(DeviceSchema))
 
-    def __repr__(self): 
-        return f"User(token = {self.token}, type = {self.type}, location = {self.location}, status = {self.status})"
+gateway_parser = reqparse.RequestParser()
+gateway_parser.add_argument('token', type=str, required=True, help='Token is required')
+gateway_parser.add_argument('name', type=str, required=True, help='Name is required')
 
-actuator_args = reqparse.RequestParser()
-actuator_args.add_argument('token', type=str, required=True, help="Token of Actuatr cannot be blank")
-actuator_args.add_argument('type', type=str, required=True, help="Type of Actuator cannot be blank")
-actuator_args.add_argument('location', type=str, required=True, help="Location cannot be blank")
-actuator_args.add_argument('status', type=str, required=True, help="Status cannot be blank")
+device_parser = reqparse.RequestParser()
+device_parser.add_argument('token', type=str, required=True, help='Device Token is required')
+device_parser.add_argument('type', type=str, required=True, help='Device type is required')
+device_parser.add_argument('name', type=str, required=True, help='Device name is required')
+device_parser.add_argument('value', type=float, required=True, help='Device value is required')
+device_parser.add_argument('datatype', type=float, required=True, help='DataType is required')
 ```
 
-**_NOTE:_**  Important part is that devices are in side of sensor, for example or JSON look like this :
-```
-{
-        'ID' : 'S-0235694',
-        'Token' : 'T-197354'
-        'Devices' : [
-            {
-                'type' : 'sensor',
-                'name' : 'temp0',
-                'value' : 18.5
-            },
-            {
-                'type' : 'act',
-                'name' : 'lamp0',
-                'value' : 1
-            },
-            {
-                'type' : 'act',
-                'name' : 'lamp1',
-                'value' : 0
-            }
-        ]
-}
-```
+**_NOTE:_**  Important part is that devices are inside of gateway.
 
 ### Fields
 Then we create fields and show what type they accept :
@@ -113,37 +91,25 @@ userFields = {
     'userrequest':fields.String,
 }
 ```
-#### b. Device and Sensor
+#### b. Gateway and Device
 ```
-class DeviceSchema(ModelSchema):
-    class Meta:
-        model = DeviceModel
-        sqla_session = db.session
-
 deviceFields = {
+    'id': fields.Integer,
+    'token': fields.String, 
     'type': fields.String,
     'name': fields.String,
     'value': fields.Integer,
-    'sensor_id': fields.Integer,
+    'datatype': fields.Integer,
 }
 
-sensorFields = {
+gatewayFields = {
     'id': fields.Integer,
     'token': fields.String,
-    'devices': fields.Nested(DeviceSchema, many=True),
+    'name': fields.String,
+    'devices': fields.List(fields.Nested(deviceFields))
 }
 ```
-#### c. Actuator
-```
-actuatorFields = {
-    'id': fields.Integer,
-    'token': fields.String,
-    'type': fields.String,
-    'location': fields.String,
-    'status': fields.String,
-}
-```
-### Add get, post, patch and delete for Users :
+### Add get, post, patch and delete for Models :
 In ```class Users(Resource)``` we create ```def get(self)``` to show all the users with the fields that we described and then in ```def post(self)``` we can add new user :
 ```
 class Users(Resource):
@@ -208,8 +174,7 @@ class User(Resource):
         users = UserModel.query.all()
         return users
 ```
-**_NOTE:_**  We do the same function for devices, device, sensors, sensor, actuators and actuator .
-
+**_NOTE:_**  We do the same function for gateways but in like User not Users .
 
 # 2.Server
 
