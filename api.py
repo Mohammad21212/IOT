@@ -1,7 +1,10 @@
-from flask import Flask 
+# api.py
+from flask import Flask, render_template_string, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
-from marshmallow_sqlalchemy import ModelSchema
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
+import requests
+import json
 
 # -----<<Database>>-----
 app = Flask(__name__) 
@@ -29,12 +32,13 @@ user_args.add_argument('userrequest', type=str, required=True, help="Userrequest
 
 class DeviceModel(db.Model):
     __tablename__ = 'devices'
-    id = db.Column(db.Integer,unique=True , nullable=False)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)  # Added primary key
     token = db.Column(db.String(80), unique=True, nullable=False)
     type = db.Column(db.String(80), nullable=False)
     name = db.Column(db.String(80), nullable=False)
     value = db.Column(db.Integer, nullable=False)
-    datatype = db.Column(db.String, nullable=False)    
+    datatype = db.Column(db.String, nullable=False)  # Corrected datatype
+    gateway_id = db.Column(db.Integer, db.ForeignKey('Gateways.id'), nullable=False)  # Added foreign key
 
     def __repr__(self):
         return f"Device(token={self.token}, type={self.type}, name={self.name}, value={self.value}, datatype={self.datatype})"
@@ -91,7 +95,8 @@ deviceFields = {
     'type': fields.String,
     'name': fields.String,
     'value': fields.Integer,
-    'datatype': fields.Integer,
+    'datatype': fields.String,
+    'gateway_id': fields.Integer,  # Added foreign key field
 }
 
 gatewayFields = {
@@ -182,7 +187,7 @@ class Gateways(Resource):
         gateway.token = args['token']
        
         # Remove existing devices
-        DeviceModel.query.filter_by(id).delete()
+        DeviceModel.query.filter_by(gateway_id=id).delete()
        
         for device_data in devices:
             device_args = device_parser.parse_args(strict=True)
@@ -202,5 +207,25 @@ api.add_resource(Gateways, '/api/gateways/<int:id>')
 def home():
     return '<h1>REST API</h1>'
 
+@app.route('/data')
+def get_data():
+    try:
+        response = requests.get('http://localhost:8080/get_data')
+        data = response.json()
+        html_template = """
+        <html>
+        <head>
+            <title>Data from Server</title>
+        </head>
+        <body>
+            <h1>Data from Server</h1>
+            <pre>{{ data }}</pre>
+        </body>
+        </html>
+        """
+        return render_template_string(html_template, data=json.dumps(data, indent=4))
+    except Exception as e:
+        return f"An error occurred: {str(e)}"
+
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(debug=True)
