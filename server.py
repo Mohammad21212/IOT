@@ -1,3 +1,4 @@
+# server.py
 import asyncio
 import json
 import os
@@ -13,6 +14,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 # A dictionary to store connected clients (gateways) and their addresses
 connected_clients = {}
 data_sending_enabled = {}
+latest_data = []
 
 # Simple token-based authentication
 AUTH_TOKEN = "your_secret_token"
@@ -44,6 +46,7 @@ async def save_data(data_type, data):
         file_path = os.path.join(folder_path, f"{timestamp}.json")
         with open(file_path, 'w') as f:
             json.dump(data, f)
+        latest_data.append(data)  # Store the latest data
         logging.info(f"Data saved to {file_path}")
     except Exception as e:
         logging.error(f"Error saving data: {e}")
@@ -65,13 +68,15 @@ async def handler(websocket, path):
         async for message in websocket:
             logging.info(f"Received message from {client_id}: {message}")
             data = json.loads(message)
+            devices = data.get("Devices", [])
             if data_sending_enabled[client_id]:
-                if data.get("id") == 34:  # Example check for sensor ID
-                    await save_data("sensors", data)
-                elif data.get("id") == 12:  # Example check for actuator ID
-                    await save_data("actuators", data)
-                else:
-                    logging.warning(f"Unknown data type: {data}")
+                for device in devices:
+                    device_type = device.get("type")
+                    logging.debug(f"Device data received: {device}")
+                    if device_type == "sensor":
+                        await save_data("sensors", device)
+                    elif device_type == "actuator":
+                        await save_data("actuators", device)
             response = f"Processed: {message}"
             await websocket.send(response)
             logging.info(f"Sent response to {client_id}: {response}")
@@ -154,9 +159,12 @@ async def control_page(request):
     """
     return web.Response(text=html, content_type='text/html')
 
+async def get_latest_data(request):
+    return web.json_response(latest_data)
+
 async def main():
     try:
-        server = await websockets.serve(handler, "0.0.0.0", 8766)
+        server = await websockets.serve(handler, "0.0.0.0", 8766, ping_interval=120, ping_timeout=60)
         logging.info("WebSocket server started")
 
         app = web.Application()
@@ -164,6 +172,7 @@ async def main():
         app.router.add_get('/start_send', start_send)
         app.router.add_get('/stop_send', stop_send)
         app.router.add_get('/control', control_page)
+        app.router.add_get('/get_data', get_latest_data)  # Add this line for the new endpoint
         runner = web.AppRunner(app)
         await runner.setup()
         site = web.TCPSite(runner, '0.0.0.0', 8080)
