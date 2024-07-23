@@ -25,51 +25,54 @@ user_args.add_argument('username', type=str, required=True, help="Username canno
 user_args.add_argument('password', type=str, required=True, help="Password cannot be blank")
 user_args.add_argument('userrequest', type=str, required=True, help="Userrequest cannot be blank")
 
-# <<Sensor and Device>>
+# <<Gateway and Device>>
+
 class DeviceModel(db.Model):
     __tablename__ = 'devices'
+    id = db.Column(db.Integer,unique=True , nullable=False)
+    token = db.Column(db.String(80), unique=True, nullable=False)
     type = db.Column(db.String(80), nullable=False)
     name = db.Column(db.String(80), nullable=False)
     value = db.Column(db.Integer, nullable=False)
-    sensor_id = db.Column(db.Integer, db.ForeignKey('sensors.id'), nullable=False)
-    sensor = db.relationship('SensorModel', backref=db.backref('devices', lazy=True))
+    datatype = db.Column(db.String, nullable=False)    
 
     def __repr__(self):
-        return f"Device(type={self.type}, name={self.name}, value={self.value})"
+        return f"Device(token={self.token}, type={self.type}, name={self.name}, value={self.value}, datatype={self.datatype})"
 
-class SensorModel(db.Model): 
-    __tablename__ = 'sensors'
+class GatewayModel(db.Model): 
+    __tablename__ = 'Gateways'
     id = db.Column(db.Integer, primary_key=True)
     token = db.Column(db.String(80), unique=True, nullable=False)
-    devices = db.relationship('DeviceModel', backref='sensor', lazy=True)
+    name = db.Column(db.String(80), nullable=False)
+    devices = db.relationship('DeviceModel', backref='gateway', lazy=True)
 
     def __repr__(self): 
-        return f"Sensor(id = {self.id}, token = {self.token}, devices={self.devices})"
+        return f"Sensor(id = {self.id}, token = {self.token}, name={self.name}, devices={self.devices})"
+    
+    
+class DeviceSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = DeviceModel
+        include_fk = True
 
-sensor_args = reqparse.RequestParser()
-sensor_args.add_argument('token', type=str, required=True, help="Token od sensor cannot be blank")
+class GatewaySchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = GatewayModel
+        include_relationships = True
+        load_instance = True
 
-device_args = reqparse.RequestParser()
-device_args.add_argument('type', type=str, required=True, help="Type of device cannot be blank")
-device_args.add_argument('name', type=str, required=True, help="Name cannot be blank")
-device_args.add_argument('value', type=int, required=True, help="Value cannot be blank")
+    devices = fields.List(fields.Nested(DeviceSchema))
 
-# <<Actuator>>
-class ActuatorModel(db.Model): 
-    id = db.Column(db.Integer, primary_key=True)
-    token = db.Column(db.String(80), unique=True, nullable=False)
-    type = db.Column(db.String(80), nullable=False)
-    location = db.Column(db.String(80), nullable=False)
-    status = db.Column(db.String(80), nullable=False)
+gateway_parser = reqparse.RequestParser()
+gateway_parser.add_argument('token', type=str, required=True, help='Token is required')
+gateway_parser.add_argument('name', type=str, required=True, help='Name is required')
 
-    def __repr__(self): 
-        return f"User(token = {self.token}, type = {self.type}, location = {self.location}, status = {self.status})"
-
-actuator_args = reqparse.RequestParser()
-actuator_args.add_argument('token', type=str, required=True, help="Token of Actuatr cannot be blank")
-actuator_args.add_argument('type', type=str, required=True, help="Type of Actuator cannot be blank")
-actuator_args.add_argument('location', type=str, required=True, help="Location cannot be blank")
-actuator_args.add_argument('status', type=str, required=True, help="Status cannot be blank")
+device_parser = reqparse.RequestParser()
+device_parser.add_argument('token', type=str, required=True, help='Device Token is required')
+device_parser.add_argument('type', type=str, required=True, help='Device type is required')
+device_parser.add_argument('name', type=str, required=True, help='Device name is required')
+device_parser.add_argument('value', type=float, required=True, help='Device value is required')
+device_parser.add_argument('datatype', type=float, required=True, help='DataType is required')
 
 # -----<<Fields>>-----
 # <<User>>
@@ -80,32 +83,22 @@ userFields = {
     'userrequest':fields.String,
 }
 
-# <<Sensor and Device>>
-class DeviceSchema(ModelSchema):
-    class Meta:
-        model = DeviceModel
-        sqla_session = db.session
+# <<Gateway and Device>>
 
 deviceFields = {
+    'id': fields.Integer,
+    'token': fields.String, 
     'type': fields.String,
     'name': fields.String,
     'value': fields.Integer,
-    'sensor_id': fields.Integer,
+    'datatype': fields.Integer,
 }
 
-sensorFields = {
+gatewayFields = {
     'id': fields.Integer,
     'token': fields.String,
-    'devices': fields.Nested(DeviceSchema, many=True),
-}
-
-# <<Actuator>>
-actuatorFields = {
-    'id': fields.Integer,
-    'token': fields.String,
-    'type': fields.String,
-    'location': fields.String,
-    'status': fields.String,
+    'name': fields.String,
+    'devices': fields.List(fields.Nested(deviceFields))
 }
 
 # -----<<get, post, patch and delete>>-----
@@ -154,150 +147,56 @@ class User(Resource):
         users = UserModel.query.all()
         return users
 
-# <<Sensor and Device>>
-class Devices(Resource):
-    @marshal_with(deviceFields)
-    def get(self):
-        devices = DeviceModel.query.all()
-        return devices
+# <<Gateway and Device>>
 
-    @marshal_with(deviceFields)
-    def post(self):
-        args = device_args.parse_args()
-        device = DeviceModel(type=args["type"], name=args["name"], value=args["value"], sensor_id=args["sensor_id"])
-        db.session.add(device)
-        db.session.commit()
-        devices = DeviceModel.query.all()
-        return devices, 201
-    
-class Device(Resource):
-    @marshal_with(deviceFields)
+class Gateways(Resource):
+    @marshal_with(gatewayFields)
     def get(self, id):
-        device = UserModel.query.filter_by(id=id).first() 
-        if not device: 
-            abort(404)
-        return device 
+        gateway = GatewayModel.query.get_or_404(id)
+        gateway_schema = GatewaySchema()
+        return gateway_schema.dump(gateway), 200
     
-    @marshal_with(deviceFields)
-    def patch(self, id):
-        device = DeviceModel.query.get(id)
-        if device is None:
-            abort(404)
-        args = device_args.parse_args()
-        device.type = args["type"]
-        device.name = args["name"]
-        device.value = args["value"]
-        device.sensor_id = args["sensor_id"]
-        db.session.commit()
-        return device, 200
-    
-    def delete(self, id):
-        device = DeviceModel.query.get(id)
-        if device is None:
-            abort(404)
-        db.session.delete(device)
-        db.session.commit()
-        return "", 204
-
-
-class Sensors(Resource):
-    @marshal_with(sensorFields)
-    def get(self):
-        sensors = SensorModel.query.all()
-        return sensors
-
-    @marshal_with(sensorFields)
+    @marshal_with(gatewayFields)
     def post(self):
-        args = sensor_args.parse_args()
-        sensor = SensorModel(token=args["token"])
-        db.session.add(sensor)
+        args = gateway_parser.parse_args()
+        devices = ('devices', [])
+        gateway = GatewayModel(token=args['token'], name=args['name'])
+       
+        for device_data in devices:
+            device_args = device_parser.parse_args(strict=True)
+            device = DeviceModel(**device_args)
+            gateway.devices.append(device)
+       
+        db.session.add(gateway)
         db.session.commit()
-        sensors = SensorModel.query.all()
-        return sensors, 201
+       
+        Gateway_Schema = GatewaySchema()
+        return Gateway_Schema.dump(gateway), 201
     
-class Sensor(Resource):
-    @marshal_with(deviceFields)
-    def get(self, id):
-        sensor = UserModel.query.filter_by(id=id).first() 
-        if not sensor: 
-            abort(404)
-        return sensor
-    
-    @marshal_with(sensorFields)
+    @marshal_with(gatewayFields)
     def patch(self, id):
-        sensor = SensorModel.query.get(id)
-        if sensor is None:
-            abort(404)
-        args = sensor_args.parse_args()
-        sensor.token = args["token"]
+        gateway = GatewayModel.query.get_or_404(id)
+        args = gateway_parser.parse_args()
+        devices = ('devices', [])
+       
+        gateway.token = args['token']
+       
+        # Remove existing devices
+        DeviceModel.query.filter_by(id).delete()
+       
+        for device_data in devices:
+            device_args = device_parser.parse_args(strict=True)
+            device = DeviceModel(**device_args)
+            gateway.devices.append(device)
+       
         db.session.commit()
-        return sensor, 200
-    
-    def delete(self, id):
-        sensor = SensorModel.query.get(id)
-        if sensor is None:
-            abort(404)
-        db.session.delete(sensor)
-        db.session.commit()
-        return "", 204
-
-# <<Actuator>>
-class Actuators(Resource):
-    @marshal_with(actuatorFields)
-    def get(self):
-        actuators = ActuatorModel.query.all()
-        return actuators
-
-    @marshal_with(actuatorFields)
-    def post(self):
-        args = actuator_args.parse_args()
-        actuator = ActuatorModel(token=args["token"], type=args["type"], location=args["location"], status=args["status"])
-        db.session.add(actuator)
-        db.session.commit()
-        actuators = ActuatorModel.query.all()
-        return actuators, 201
-    
-class Actuator(Resource):
-    @marshal_with(actuatorFields)
-    def get(self, id):
-        actuator = ActuatorModel.query.filter_by(id=id).first() 
-        if not actuator: 
-            abort(404)
-        return actuator 
-    
-    @marshal_with(actuatorFields)
-    def patch(self, id):
-        actuator = ActuatorModel.query.get(id)
-        if actuator is None:
-            abort(404)
-        args = actuator_args.parse_args()
-        actuator.token = args["token"]
-        actuator.type = args["type"]
-        actuator.location = args["location"]
-        actuator.status = args["status"]
-        db.session.commit()
-        return actuator, 200
-    
-    def delete(self, id):
-        actuator = ActuatorModel.query.get(id)
-        if actuator is None:
-            abort(404)
-        db.session.delete(actuator)
-        db.session.commit()
-        return "", 204
+       
+        gateway_schema = GatewaySchema()
+        return gateway_schema.dump(gateway), 200
 
 api.add_resource(Users, '/api/users/')
 api.add_resource(User, '/api/users/<int:id>')
-
-api.add_resource(Devices, '/api/devices/')
-api.add_resource(Device, '/api/devices/<int:id>')
-
-api.add_resource(Sensors, '/api/sensors/')
-api.add_resource(Sensor, '/api/sensors/<int:id>')
-
-api.add_resource(Actuators, '/api/actuators/')
-api.add_resource(Actuator, '/api/actuators/<int:id>')
-
+api.add_resource(Gateways, '/api/gateways/<int:id>')
 
 @app.route('/')
 def home():
