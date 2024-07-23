@@ -1,16 +1,67 @@
 #include <WiFi.h>
 #include <ArduinoWebsockets.h>
 #include <ArduinoJson.h>
+#include <HTTPClient.h>
 
 const char* ssid = "Mohammad's A30";
 const char* password = "mohammadjj80";
-const char* websocket_server = "ws://192.168.159.19:8766";  // Correct IP address
+const char* websocket_server = "ws://192.168.107.19:8766";  // Correct IP address
 const char* auth_token = "your_secret_token"; // The same token used in the server
 
 using namespace websockets;
 
 WebsocketsClient client;
 bool sendData = false;
+
+// Function to generate a random token from the UUID API
+String generateToken() {
+    HTTPClient http;
+    http.begin("https://www.uuidgenerator.net/api/version4");
+    int httpCode = http.GET();
+    String payload;
+    if (httpCode > 0) {
+        payload = http.getString();
+    }
+    http.end();
+    payload.trim();
+    return payload;
+}
+
+// Function to generate a random value and its dtype
+void generateRandomValue(JsonObject& device) {
+    int type = random(3); // Randomly choose between 0, 1, 2
+    if (type == 0) {
+        device["value"] = random(0, 100); // int value
+        device["dtype"] = "int";
+    } else if (type == 1) {
+        device["value"] = random(0, 100) / 1.0; // float value
+        device["dtype"] = "float";
+    } else {
+        device["value"] = random(0, 2); // binary value (0 or 1)
+        device["dtype"] = "binary";
+    }
+}
+
+// Function to generate random devices
+void generateRandomDevices(JsonArray& devices) {
+    for (int i = 0; i < 5; i++) {
+        JsonObject sensor = devices.createNestedObject();
+        sensor["id"] = "S" + String(random(1000000, 9999999));
+        sensor["token"] = generateToken();
+        sensor["type"] = "sensor";
+        sensor["name"] = "Sensor " + String(i + 1);
+        generateRandomValue(sensor); // Assign random value and dtype
+    }
+    for (int i = 0; i < 5; i++) {
+        JsonObject actuator = devices.createNestedObject();
+        actuator["id"] = "A" + String(random(1000000, 9999999));
+        actuator["token"] = generateToken();
+        actuator["type"] = "actuator";
+        actuator["name"] = "Actuator " + String(i + 1);
+        generateRandomValue(actuator); // Assign random value and dtype
+    }
+}
+
 
 void setup_wifi() {
     Serial.begin(115200);
@@ -78,23 +129,6 @@ void setup() {
     connectWebSocket();
 }
 
-float readSensorData(int pin) {
-    int sensorValue = analogRead(pin);  // Example sensor data
-    float voltage = sensorValue * (3.3 / 4095.0); // Convert ADC reading to voltage
-    Serial.print("Sensor Value: ");
-    Serial.print(sensorValue);
-    Serial.print(" Voltage: ");
-    Serial.println(voltage);
-    return voltage;
-}
-
-bool readActuatorData(int pin) {
-    bool state = digitalRead(pin);  // Example actuator data
-    Serial.print("Actuator State: ");
-    Serial.println(state);
-    return state;
-}
-
 void loop() {
     if (client.available()) {
         client.poll();
@@ -104,40 +138,17 @@ void loop() {
     }
 
     if (sendData) {
-        // Read sensor and actuator data
-        float sensor_voltage = readSensorData(34);  // Example sensor data
-        bool actuator_state = readActuatorData(12);  // Example actuator data
+        StaticJsonDocument<512> doc;
+        JsonArray devices = doc.createNestedArray("Devices");
+        generateRandomDevices(devices);
 
-        // Create JSON object for sensor data
-        StaticJsonDocument<200> sensorDoc;
-        sensorDoc["id"] = 34;
-        sensorDoc["token"] = auth_token;
-        sensorDoc["data"] = sensor_voltage;
+        String jsonString;
+        serializeJson(doc, jsonString);
 
-        // Serialize JSON to string for sensor data
-        String sensorJson;
-        serializeJson(sensorDoc, sensorJson);
-
-        // Send JSON data for sensor
-        bool send_result = client.send(sensorJson);
-        Serial.print("Send result (sensor): ");
+        bool send_result = client.send(jsonString);
+        Serial.print("Send result: ");
         Serial.println(send_result ? "Success" : "Failed");
 
-        // Create JSON object for actuator data
-        StaticJsonDocument<200> actuatorDoc;
-        actuatorDoc["id"] = 12;
-        actuatorDoc["token"] = auth_token;
-        actuatorDoc["data"] = actuator_state;
-
-        // Serialize JSON to string for actuator data
-        String actuatorJson;
-        serializeJson(actuatorDoc, actuatorJson);
-
-        // Send JSON data for actuator
-        send_result = client.send(actuatorJson);
-        Serial.print("Send result (actuator): ");
-        Serial.println(send_result ? "Success" : "Failed");
-
-        delay(1000);  // Send data every second
+        delay(1000);  
     }
 }
