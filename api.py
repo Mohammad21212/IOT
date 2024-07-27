@@ -10,8 +10,8 @@ api = Api(app)
 # Setup basic logging
 logging.basicConfig(level=logging.DEBUG)
 
-# Replace with the actual IP address of the server device
-SERVER_IP = "localhost"  # Updated to localhost
+# Replace with the actual IP address of the server device (Device A)
+SERVER_IP = "192.168.1.100"  # Updated to the IP address of Device A
 SERVER_PORT = 8080  # Ensure this matches the port used by server.py
 
 class AllData(Resource):
