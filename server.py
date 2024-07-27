@@ -37,10 +37,9 @@ async def authenticate(websocket, path):
 async def save_data(gateway_name, data):
     try:
         logging.debug(f"Saving data for gateway {gateway_name}: {data}")
-        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')
-        folder_path = f"data"
+        folder_path = "data"
         os.makedirs(folder_path, exist_ok=True)
-        file_path = os.path.join(folder_path, f"{gateway_name}_{timestamp}.json")
+        file_path = os.path.join(folder_path, f"{gateway_name}.json")
         with open(file_path, 'w') as f:
             json.dump(data, f)
         latest_data[gateway_name] = data
@@ -78,75 +77,19 @@ async def handler(websocket, path):
         del data_sending_enabled[client_id]
         logging.info(f"Client {client_id} unregistered")
 
-async def hello(request):
-    return web.Response(text="Hello, world")
-
-async def start_send(request):
+async def start_send():
     global data_sending_enabled
     for client_id, websocket in connected_clients.items():
         data_sending_enabled[client_id] = True
         await websocket.send("Start Sending Data")
-    return web.Response(text="Data sending enabled")
+    logging.info("Data sending enabled for all clients")
 
-async def stop_send(request):
+async def stop_send():
     global data_sending_enabled
     for client_id, websocket in connected_clients.items():
         data_sending_enabled[client_id] = False
         await websocket.send("Stop Sending Data")
-    return web.Response(text="Data sending disabled")
-
-async def control_page(request):
-    html = """
-    <html>
-        <head>
-            <title>Control Page</title>
-            <style>
-                .button {
-                    display: inline-block;
-                    padding: 10px 20px;
-                    font-size: 20px;
-                    cursor: pointer;
-                    text-align: center;
-                    text-decoration: none;
-                    outline: none;
-                    color: #fff;
-                    background-color: #4CAF50;
-                    border: none;
-                    border-radius: 15px;
-                    box-shadow: 0 9px #999;
-                }
-                .button:hover {background-color: #3e8e41}
-                .button:active {
-                    background-color: #3e8e41;
-                    box-shadow: 0 5px #666;
-                    transform: translateY(4px);
-                }
-                .button-red {
-                    background-color: #f44336;
-                }
-                .button-red:hover {background-color: #da190b}
-                .button-red:active {
-                    background-color: #da190b;
-                    box-shadow: 0 5px #666;
-                    transform: translateY(4px);
-                }
-            </style>
-        </head>
-        <body>
-            <button class="button" onclick="startSend()">Start Sending Data</button>
-            <button class="button button-red" onclick="stopSend()">Stop Sending Data</button>
-            <script>
-                function startSend() {
-                    fetch('/start_send');
-                }
-                function stopSend() {
-                    fetch('/stop_send');
-                }
-            </script>
-        </body>
-    </html>
-    """
-    return web.Response(text=html, content_type='text/html')
+    logging.info("Data sending disabled for all clients")
 
 async def turn_on_fan():
     for client_id, websocket in connected_clients.items():
@@ -156,6 +99,7 @@ async def turn_on_fan():
         for device in latest_data[gateway_name]['devices']:
             if device['name'] == 'Fan':
                 device['value'] = 1
+    logging.info("Fan turned on")
 
 async def turn_off_fan():
     for client_id, websocket in connected_clients.items():
@@ -165,6 +109,7 @@ async def turn_off_fan():
         for device in latest_data[gateway_name]['devices']:
             if device['name'] == 'Fan':
                 device['value'] = 0
+    logging.info("Fan turned off")
 
 async def control_fan(request):
     data = await request.json()
@@ -193,10 +138,10 @@ async def main():
         logging.info("WebSocket server started")
 
         app = web.Application()
-        app.router.add_get('/', hello)
-        app.router.add_get('/control', control_page)
         app.router.add_post('/control_fan', control_fan)
         app.router.add_get('/get_data', get_latest_data)
+        app.router.add_get('/start_send', lambda request: start_send())
+        app.router.add_get('/stop_send', lambda request: stop_send())
         runner = web.AppRunner(app)
         await runner.setup()
         site = web.TCPSite(runner, '0.0.0.0', 8080)
