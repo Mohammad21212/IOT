@@ -21,18 +21,17 @@ const int blueLEDPin = 2; // Built-in LED pin (usually GPIO2)
 
 // Timing variables for touch sensor
 volatile bool touchDetected = false;
-unsigned long touchStartTime = 0;
+volatile unsigned long touchStartTime = 0;
 unsigned long lastTouchTime = 0;
 const unsigned long debounceDelay = 50; // Debounce delay in milliseconds
 const int touchThreshold = 30; // Adjust this value as needed
+const unsigned long touchDuration = 20000; // Duration to keep LED on and set value to 1 (20 seconds)
 
-// Generate a unique gateway identifier in the format G*******
 String generateGatewayID() {
     String gateway_id = "G" + String(random(1000000, 9999999));  // Generate a random 7-digit number
     return gateway_id;
 }
 
-// Function to generate a random 16-bit token string
 String generateToken() {
     String tokenString = "";
     for (int i = 0; i < 10; i++) { // Generate 10 random 16-bit numbers
@@ -51,7 +50,6 @@ String gateway2_token = generateToken();
 String gateway2_name = "G2";
 String websocket_server;
 
-// Function to generate a random value and its dtype
 void generateRandomValue(JsonObject& device) {
     int type = random(3); // Randomly choose between 0, 1, 2
     if (type == 0) {
@@ -68,7 +66,6 @@ void generateRandomValue(JsonObject& device) {
     }
 }
 
-// Function to generate random devices including a fan as one of the actuators
 void generateRandomDevices(JsonArray& devices, bool includeFan = false, bool includeTouchSensor = false) {
     for (int i = 0; i < 5; i++) {
         JsonObject sensor = devices.createNestedObject();
@@ -179,18 +176,18 @@ void IRAM_ATTR touchCallback() {
 }
 
 void readSerialInput(char* buffer, int length) {
-  int index = 0;
-  while (true) {
-    if (Serial.available() > 0) {
-      char incomingByte = Serial.read();
-      if (incomingByte == '\n') {
-        buffer[index] = '\0';
-        break;
-      } else if (index < length - 1) {
-        buffer[index++] = incomingByte;
-      }
+    int index = 0;
+    while (true) {
+        if (Serial.available() > 0) {
+            char incomingByte = Serial.read();
+            if (incomingByte == '\n') {
+                buffer[index] = '\0';
+                break;
+            } else if (index < length - 1) {
+                buffer[index++] = incomingByte;
+            }
+        }
     }
-  }
 }
 
 char ipAddress[16];
@@ -209,12 +206,12 @@ void setup() {
     
     // Read the port from the serial monitor
     while (true) {
-      if (Serial.available() > 0) {
-        port = Serial.parseInt();
-        if (port > 0) {
-          break;
+        if (Serial.available() > 0) {
+            port = Serial.parseInt();
+            if (port > 0) {
+                break;
+            }
         }
-      }
     }
     Serial.print("Port set to: ");
     Serial.println(port);
@@ -257,7 +254,7 @@ void loop() {
         doc1["token"] = gateway1_token;
         doc1["name"] = gateway1_name;
         JsonArray devices1 = doc1.createNestedArray("devices");
-        generateRandomDevices(devices1, false, true);  // Include touch sensor
+        generateRandomDevices(devices1);  // Do not include touch sensor
 
         String jsonString1;
         serializeJson(doc1, jsonString1);
@@ -266,13 +263,21 @@ void loop() {
         Serial.print("Send result for gateway 1: ");
         Serial.println(send_result1 ? "Success" : "Failed");
 
-        // Send data for gateway 2 with fan
+        // Send data for gateway 2 with fan and touch sensor
         StaticJsonDocument<512> doc2;
         doc2["id"] = gateway2_id;
         doc2["token"] = gateway2_token;
         doc2["name"] = gateway2_name;
         JsonArray devices2 = doc2.createNestedArray("devices");
-        generateRandomDevices(devices2, true);  // Include fan
+        generateRandomDevices(devices2, true, true);  // Include fan and touch sensor
+
+        // Update touch sensor value based on the touch detection
+        for (JsonObject device : devices2) {
+            if (device["name"] == "Touch Sensor") {
+                device["value"] = (touchDetected && (millis() - touchStartTime < touchDuration)) ? 1 : 0;
+                break;
+            }
+        }
 
         String jsonString2;
         serializeJson(doc2, jsonString2);
@@ -284,12 +289,12 @@ void loop() {
         sendData = false;  // Reset flag after sending data
     }
 
-    // Handle touch sensor LED logic
+    // Handle touch sensor LED logic and reset touch detection after 20 seconds
     if (touchDetected) {
-        if (millis() - touchStartTime < 5000) {
+        if (millis() - touchStartTime < touchDuration) {
             digitalWrite(blueLEDPin, HIGH); // Turn on LED
         } else {
-            digitalWrite(blueLEDPin, LOW); // Turn off LED after 5 seconds
+            digitalWrite(blueLEDPin, LOW); // Turn off LED after 20 seconds
             touchDetected = false; // Reset flag
         }
     }
