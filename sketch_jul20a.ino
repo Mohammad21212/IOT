@@ -2,9 +2,8 @@
 #include <ArduinoWebsockets.h>
 #include <ArduinoJson.h>
 
-const char* ssid = "Your_SSID_Name";
-const char* password = "Your_SSID_Password";
-const char* websocket_server = "ws:// localhost:8766";  // Correct IP address
+const char* ssid = "Mohammad's A30";
+const char* password = "mohammadjj80";
 const char* auth_token = "your_secret_token"; // The same token used in the server
 
 using namespace websockets;
@@ -51,6 +50,7 @@ String gateway1_name = "G1";
 String gateway2_id = generateGatewayID();
 String gateway2_token = generateToken();
 String gateway2_name = "G2";
+String websocket_server;
 
 // Function to generate a random value and its dtype
 void generateRandomValue(JsonObject& device) {
@@ -158,9 +158,9 @@ void onEventsCallback(WebsocketsEvent event, String data) {
     }
 }
 
-void connectWebSocket() {
+void connectWebSocket(const char* ws_server) {
     Serial.println("Connecting to WebSocket server...");
-    bool result = client.connect(websocket_server);
+    bool result = client.connect(ws_server);
     if (result) {
         Serial.println("WebSocket connected");
         client.send(auth_token); // Send the authentication token
@@ -179,14 +179,56 @@ void IRAM_ATTR touchCallback() {
     }
 }
 
+void readSerialInput(char* buffer, int length) {
+  int index = 0;
+  while (true) {
+    if (Serial.available() > 0) {
+      char incomingByte = Serial.read();
+      if (incomingByte == '\n') {
+        buffer[index] = '\0';
+        break;
+      } else if (index < length - 1) {
+        buffer[index++] = incomingByte;
+      }
+    }
+  }
+}
+
+char ipAddress[16];
+int port;
+
 void setup() {
     Serial.begin(115200);
+    Serial.println("Enter IP address:");
+
+    // Read the IP address from the serial monitor
+    readSerialInput(ipAddress, sizeof(ipAddress));
+    Serial.print("IP Address set to: ");
+    Serial.println(ipAddress);
+
+    Serial.println("Enter Port:");
+    
+    // Read the port from the serial monitor
+    while (true) {
+      if (Serial.available() > 0) {
+        port = Serial.parseInt();
+        if (port > 0) {
+          break;
+        }
+      }
+    }
+    Serial.print("Port set to: ");
+    Serial.println(port);
+
+    websocket_server = "ws://" + String(ipAddress) + ":" + String(port);
+    Serial.println(websocket_server);
+
     setup_wifi();
 
     client.onMessage(onMessageCallback);
     client.onEvent(onEventsCallback);
 
-    connectWebSocket();
+    connectWebSocket(websocket_server.c_str());
 
     pinMode(controlPin, OUTPUT);
     pinMode(fanPin, OUTPUT);
@@ -206,7 +248,7 @@ void loop() {
         client.poll();
     } else {
         Serial.println("Client not available, reconnecting...");
-        connectWebSocket();
+        connectWebSocket(websocket_server.c_str());
     }
 
     if (sendData) {
