@@ -10,7 +10,6 @@ using namespace websockets;
 
 WebsocketsClient client;
 bool sendData = false;
-bool dataSent = false;  // New flag to ensure data is sent only once
 
 // Fan control pins
 const int fanPin = 26; // DAC1 pin
